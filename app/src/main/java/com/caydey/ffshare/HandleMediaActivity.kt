@@ -144,7 +144,8 @@ class HandleMediaActivity : AppCompatActivity() {
         pendingMediaUris = receivedMedia
 
         val serviceIntent = Intent(this, EncodingService::class.java)
-        startService(serviceIntent)
+        // Must use startForegroundService on Android O+ for foreground services
+        ContextCompat.startForegroundService(this, serviceIntent)
         bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
     }
 

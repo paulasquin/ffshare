@@ -78,18 +78,9 @@ class EncodingService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return START_NOT_STICKY
-    }
-
-    fun startEncoding(inputUris: ArrayList<Uri>) {
-        if (isEncoding) {
-            Timber.w("Encoding already in progress")
-            return
-        }
-
-        isEncoding = true
-
-        // Start as foreground service
+        // CRITICAL: Must call startForeground() immediately on Android O+ to avoid
+        // ForegroundServiceDidNotStartInTimeException. On Android 14+ (API 34),
+        // this must happen within ~10 seconds of startForegroundService() call.
         val notification = notificationManager.createInitialNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
@@ -100,6 +91,18 @@ class EncodingService : Service() {
         } else {
             startForeground(EncodingNotificationManager.NOTIFICATION_ID, notification)
         }
+        return START_NOT_STICKY
+    }
+
+    fun startEncoding(inputUris: ArrayList<Uri>) {
+        if (isEncoding) {
+            Timber.w("Encoding already in progress")
+            return
+        }
+
+        isEncoding = true
+        // Note: startForeground() is already called in onStartCommand() to comply
+        // with Android 14+ foreground service requirements
 
         processFiles(inputUris)
     }

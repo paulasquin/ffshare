@@ -113,6 +113,12 @@ def get_latest_tag() -> Optional[str]:
     return result.stdout.strip().split("\n")[0]
 
 
+def tag_exists(tag: str) -> bool:
+    """Check if a git tag exists."""
+    result = run(["git", "rev-parse", tag], capture=True, check=False)
+    return result.returncode == 0
+
+
 def parse_version(tag: str) -> tuple[int, int, int]:
     """Parse a version tag into (major, minor, patch)."""
     match = re.match(r"v?(\d+)\.(\d+)\.(\d+)", tag)
@@ -260,7 +266,13 @@ def _create_tag(
         if release_type:
             # New RC: bump version and start at rc.1
             new_version = bump_version(current_version, release_type)
-            new_tag = format_version(new_version, rc=1)
+            rc_num = 1
+            new_tag = format_version(new_version, rc=rc_num)
+
+            # If tag already exists, increment RC number until we find an unused one
+            while tag_exists(new_tag):
+                rc_num += 1
+                new_tag = format_version(new_version, rc=rc_num)
         else:
             # Increment existing RC
             rc_tag = get_latest_rc_tag()
@@ -278,8 +290,13 @@ def _create_tag(
                 raise typer.Exit(1)
 
             rc_version = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
-            rc_num = int(match.group(4))
-            new_tag = format_version(rc_version, rc=rc_num + 1)
+            rc_num = int(match.group(4)) + 1
+            new_tag = format_version(rc_version, rc=rc_num)
+
+            # If tag already exists, increment RC number until we find an unused one
+            while tag_exists(new_tag):
+                rc_num += 1
+                new_tag = format_version(rc_version, rc=rc_num)
     else:
         if not release_type:
             typer.echo("Error: Release type required", err=True)
