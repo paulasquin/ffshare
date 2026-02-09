@@ -1,24 +1,42 @@
 package com.caydey.ffshare.utils
 
 import android.net.Uri
-import com.arthenica.ffmpegkit.MediaInformation
+import com.antonkarpenko.ffmpegkit.MediaInformation
 import timber.log.Timber
 import java.util.StringJoiner
 import kotlin.math.ceil
 
 class FFmpegParamMaker(val settings: Settings, val utils: Utils) {
-    fun create(inputFile: Uri, mediaInformation: MediaInformation, mediaType: Utils.MediaType, outputMediaType: Utils.MediaType): String {
+    /**
+     * Creates FFmpeg parameters for encoding.
+     *
+     * @param inputFile The input file URI
+     * @param mediaInformation Media information from FFprobe
+     * @param mediaType The input media type
+     * @param outputMediaType The output media type
+     * @return The FFmpeg parameters string
+     */
+    fun create(
+        inputFile: Uri,
+        mediaInformation: MediaInformation,
+        mediaType: Utils.MediaType,
+        outputMediaType: Utils.MediaType
+    ): String {
         // custom params
-        if (utils.isImage(outputMediaType) && settings.customImageParams.isNotEmpty()) return settings.customImageParams
-        if (utils.isVideo(outputMediaType) && settings.customVideoParams.isNotEmpty()) return settings.customVideoParams
-        if (utils.isAudio(outputMediaType) && settings.customAudioParams.isNotEmpty()) return settings.customAudioParams
+        if (utils.isImage(outputMediaType) && settings.customImageParams.isNotEmpty()) {
+            return settings.customImageParams
+        }
+        if (utils.isVideo(outputMediaType) && settings.customVideoParams.isNotEmpty()) {
+            return settings.customVideoParams
+        }
+        if (utils.isAudio(outputMediaType) && settings.customAudioParams.isNotEmpty()) {
+            return settings.customAudioParams
+        }
 
         val params = StringJoiner(" ")
         val videoFormatParams = StringJoiner(",")
 
-//        val (inputVideoCodec, inputAudioCodec) = getMediaCodecs(mediaInformation)
-
-        // preset, webp does not support this
+        // preset - webp doesn't support this
         if (outputMediaType != Utils.MediaType.WEBP) {
             params.add("-preset ${settings.compressionPreset}")
         }
@@ -55,9 +73,6 @@ class FFmpegParamMaker(val settings: Settings, val utils: Utils) {
 
         // video
         if (utils.isVideo(outputMediaType)) { // check outputMediaType not mediaType because conversions
-            // crf
-            params.add("-crf ${settings.videoCrf}")
-
             // pixel format
             videoFormatParams.add("format=yuv420p")
 
@@ -65,6 +80,9 @@ class FFmpegParamMaker(val settings: Settings, val utils: Utils) {
             if (settings.videoCodec != Settings.VideoCodecOpts.DEFAULT) {
                 params.add("-c:v ${settings.videoCodec.raw}")
             }
+
+            // crf
+            params.add("-crf ${settings.videoCrf}")
 
             // H.26x requires dimensions to be divisible by 2, video scaling will account for this if applied
             if (!videoScaleApplied) {
@@ -114,18 +132,5 @@ class FFmpegParamMaker(val settings: Settings, val utils: Utils) {
         }
 
         return params.toString()
-    }
-
-    private fun getMediaCodecs(mediaInformation: MediaInformation): Pair<Settings.VideoCodecOpts?, Settings.AudioCodecOpts?> {
-        var audioCodec: Settings.AudioCodecOpts? = null
-        var videoCodec: Settings.VideoCodecOpts? = null
-        for (stream in mediaInformation.streams) {
-            if (stream.type.lowercase() == "video") {
-                videoCodec = Settings.VideoCodecOpts.parseCodec(stream.codec);
-            } else if (stream.type.lowercase() == "audio") {
-                audioCodec = Settings.AudioCodecOpts.parseCodec((stream.codec))
-            }
-        }
-        return Pair(videoCodec, audioCodec)
     }
 }
