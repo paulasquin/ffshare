@@ -73,16 +73,26 @@ class FFmpegParamMaker(val settings: Settings, val utils: Utils) {
 
         // video
         if (utils.isVideo(outputMediaType)) { // check outputMediaType not mediaType because conversions
-            // pixel format
-            videoFormatParams.add("format=yuv420p")
+            // pixel format - convert to yuv420p and normalize color properties
+            // This handles both standard and HDR content by normalizing to bt709
+            videoFormatParams.add("format=yuv420p,colorspace=bt709:iall=bt709:fast=1")
 
             // video codec
             if (settings.videoCodec != Settings.VideoCodecOpts.DEFAULT) {
                 params.add("-c:v ${settings.videoCodec.raw}")
+            } else {
+                // When DEFAULT, explicitly use libx264 to avoid hardware encoder issues with HDR
+                params.add("-c:v libx264")
             }
 
             // crf
             params.add("-crf ${settings.videoCrf}")
+
+            // GOP size - set to 2x framerate for better seeking and encoder stability
+            // This prevents warnings about i-frame-interval with mediacodec
+            val fps = mediaInformation.streams.firstOrNull()?.averageFrameRate?.toIntOrNull() ?: 30
+            val gopSize = fps * 2
+            params.add("-g $gopSize")
 
             // H.26x requires dimensions to be divisible by 2, video scaling will account for this if applied
             if (!videoScaleApplied) {
